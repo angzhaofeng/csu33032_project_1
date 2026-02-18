@@ -1,1 +1,5 @@
+com\proxy\ClientHandler.class
 com\proxy\App.class
+com\proxy\ProxyServer.class
+com\proxy\BlockedListManager.class
+com\proxy\CacheManager.class
