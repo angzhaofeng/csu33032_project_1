@@ -262,6 +262,7 @@ public class ClientHandler implements Runnable {
         String target = (urlString != null && !urlString.isBlank()) ? urlString : host;
         if (BlockedListManager.isBlocked(target)) {
             System.out.println("Blocked: " + target);
+            ProxyStats.recordBlockedRequest();
             sendForbidden(clientOut);
             return true;
         }

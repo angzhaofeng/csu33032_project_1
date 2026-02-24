@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class ProxyStats {
 
+    private static final AtomicLong blockedRequests = new AtomicLong();
     private static final AtomicLong cacheHits = new AtomicLong();
     private static final AtomicLong networkFetches = new AtomicLong();
     private static final AtomicLong totalCacheHitTimeMs = new AtomicLong();
@@ -22,7 +23,12 @@ public class ProxyStats {
         totalNetworkFetchTimeMs.addAndGet(Math.max(0, durationMs));
     }
 
+    public static void recordBlockedRequest() {
+        blockedRequests.incrementAndGet();
+    }
+
     public static String buildReport() {
+        long blocked = blockedRequests.get();
         long hits = cacheHits.get();
         long fetches = networkFetches.get();
         long cacheTime = totalCacheHitTimeMs.get();
@@ -36,6 +42,7 @@ public class ProxyStats {
 
         StringBuilder report = new StringBuilder();
         report.append("Proxy Timing Stats:\n");
+        report.append("- Blocked requests: ").append(blocked).append('\n');
         report.append("- Cache hits: ").append(hits).append('\n');
         report.append("- Network fetches: ").append(fetches).append('\n');
         report.append("- Avg cache response time: ").append(String.format("%.2f", avgCache)).append(" ms\n");
