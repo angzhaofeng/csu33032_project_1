@@ -24,6 +24,20 @@ on a specified port (default 8080) and forwards client requests to origin server
 - **Browser Config**: Set HTTP proxy to 127.0.0.1:8080
 - **Management Console**: Type commands in the server console (e.g., `block example.com`)
 
+## Console Commands
+```bash
+block <host-or-url>   - Add target to block list (normalized to host)"
+unblock <host-or-url> - Remove target from block list (normalized to host)"
+blocklist             - Show blocked targets"
+cache list      - Show cached request keys"
+cache clear     - Remove all cached responses"
+cache remove <url> - Remove cached responses for a URL"
+stats           - Show cache/network timing efficiency stats"
+clear           - Clear console text"
+help            - Show this message"
+quit | exit     - Stop proxy server"
+```
+
 ## Architecture
 The proxy server is structured into several components:
 ```
