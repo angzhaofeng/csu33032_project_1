@@ -44,10 +44,18 @@ public class ClientHandler implements Runnable {
             String method = parts[0];
             String urlString = parts[1];
 
-            if ("CONNECT".equalsIgnoreCase(method)) {
-                handleHttpsTunnel(urlString, clientOut);
-            } else {
-                handleHttpRequest(method, urlString, requestLine, reader, clientOut);
+            long requestStartTime = System.nanoTime();
+
+            try {
+                if ("CONNECT".equalsIgnoreCase(method)) {
+                    handleHttpsTunnel(urlString, clientOut);
+                } else {
+                    handleHttpRequest(method, urlString, requestLine, reader, clientOut);
+                }
+            } finally {
+                long requestDurationMs = (System.nanoTime() - requestStartTime) / 1_000_000;
+                System.out.println("Request Completed: " + method + " " + urlString +
+                        " | Time: " + requestDurationMs + " ms");
             }
 
         } catch (SocketException e) {
@@ -56,74 +64,6 @@ public class ClientHandler implements Runnable {
             System.out.println("I/O error while handling client: " + e.getMessage());
         }
     }
-
-    // private void handleHttpRequest(String method, String urlString,
-    //                                String requestLine,
-    //                                BufferedReader reader,
-    //                                OutputStream clientOut) throws IOException {
-
-    //     URL url = new URL(urlString);
-    //     String host = url.getHost();
-    //     int port = (url.getPort() == -1) ? 80 : url.getPort();
-
-    //     if (checkBlockedList(host, clientOut)) {
-    //         return;
-    //     }
-
-
-    //     // if (BlockedListManager.isBlocked(host)) {
-    //     //     System.out.println("Blocked: " + host);
-    //     //     sendForbidden(clientOut);
-    //     //     return;
-    //     // }
-
-    //     String cacheKey = method + ":" + urlString;
-
-    //     if ("GET".equalsIgnoreCase(method) && CacheManager.contains(cacheKey)) {
-    //         clientOut.write(CacheManager.get(cacheKey));
-    //         System.out.println("Cache Retrieved: " + host);
-    //         clientOut.flush();
-    //         return;
-    //     }
-
-    //     try (Socket serverSocket = new Socket()) {
-    //         serverSocket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
-
-    //         OutputStream serverOut = serverSocket.getOutputStream();
-    //         InputStream serverIn = serverSocket.getInputStream();
-
-    //         // Send original request
-    //         serverOut.write((requestLine + "\r\n").getBytes());
-
-    //         String line;
-    //         while ((line = reader.readLine()) != null && !line.isEmpty()) {
-    //             serverOut.write((line + "\r\n").getBytes());
-    //         }
-    //         serverOut.write("\r\n".getBytes());
-    //         serverOut.flush();
-
-    //         ByteArrayOutputStream responseBuffer = new ByteArrayOutputStream();
-    //         byte[] buffer = new byte[BUFFER_SIZE];
-    //         int bytesRead;
-
-    //         while ((bytesRead = serverIn.read(buffer)) != -1) {
-    //             responseBuffer.write(buffer, 0, bytesRead);
-    //             clientOut.write(buffer, 0, bytesRead);
-    //         }
-
-    //         clientOut.flush();
-
-    //         if ("GET".equalsIgnoreCase(method)) {
-    //             CacheManager.put(cacheKey, responseBuffer.toByteArray());
-    //         }
-    //     } catch (SocketTimeoutException | ConnectException e) {
-    //         System.out.println("Upstream connection timeout for " + host + ":" + port);
-    //         sendGatewayTimeout(clientOut);
-    //     } catch (IOException e) {
-    //         System.out.println("Upstream I/O error for " + host + ":" + port + " - " + e.getMessage());
-    //         sendBadGateway(clientOut);
-    //     }
-    // }
 
     private void handleHttpRequest(String method, String urlString,
                                String requestLine,
@@ -136,7 +76,7 @@ public class ClientHandler implements Runnable {
     String host = url.getHost();
     int port = (url.getPort() == -1) ? 80 : url.getPort();
 
-    if (checkBlockedList(host, clientOut)) {
+    if (checkBlockedList(host, urlString, clientOut)) {
         return;
     }
 
@@ -152,6 +92,7 @@ public class ClientHandler implements Runnable {
         long endTime = System.nanoTime();
         long durationMs = (endTime - startTime) / 1_000_000;
 
+        ProxyStats.recordCacheHit(durationMs);
         System.out.println("Cache Retrieved: " + host +
                 " | Time: " + durationMs + " ms");
 
@@ -168,10 +109,36 @@ public class ClientHandler implements Runnable {
 
         serverOut.write((requestLine + "\r\n").getBytes());
 
+        boolean connectionHeaderSeen = false;
+        boolean proxyConnectionHeaderSeen = false;
+
         String line;
         while ((line = reader.readLine()) != null && !line.isEmpty()) {
+            String lowerLine = line.toLowerCase();
+
+            if (lowerLine.startsWith("connection:")) {
+                serverOut.write("Connection: close\r\n".getBytes());
+                connectionHeaderSeen = true;
+                continue;
+            }
+
+            if (lowerLine.startsWith("proxy-connection:")) {
+                serverOut.write("Proxy-Connection: close\r\n".getBytes());
+                proxyConnectionHeaderSeen = true;
+                continue;
+            }
+
             serverOut.write((line + "\r\n").getBytes());
         }
+
+        if (!connectionHeaderSeen) {
+            serverOut.write("Connection: close\r\n".getBytes());
+        }
+
+        if (!proxyConnectionHeaderSeen) {
+            serverOut.write("Proxy-Connection: close\r\n".getBytes());
+        }
+
         serverOut.write("\r\n".getBytes());
         serverOut.flush();
 
@@ -193,6 +160,7 @@ public class ClientHandler implements Runnable {
         long endTime = System.nanoTime();
         long durationMs = (endTime - startTime) / 1_000_000;
 
+        ProxyStats.recordNetworkFetch(durationMs);
         System.out.println("Fetched From Network: " + host +
                 " | Time: " + durationMs + " ms");
 
@@ -206,6 +174,8 @@ public class ClientHandler implements Runnable {
 }
 
     private void handleHttpsTunnel(String hostPort, OutputStream clientOut) throws IOException {
+
+        long tunnelStartTime = System.nanoTime();
 
         String[] parts = hostPort.split(":");
         if (parts.length != 2) {
@@ -221,7 +191,7 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        if (checkBlockedList(host, clientOut)) {
+        if (checkBlockedList(host, null, clientOut)) {
             try {
                 clientSocket.shutdownOutput();
             } catch (IOException ignored) {
@@ -239,7 +209,10 @@ public class ClientHandler implements Runnable {
         try {
             serverSocket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
         } catch (SocketTimeoutException | ConnectException e) {
+            long durationMs = (System.nanoTime() - tunnelStartTime) / 1_000_000;
             System.out.println("HTTPS tunnel timeout for " + host + ":" + port);
+            System.out.println("HTTPS Tunnel Failed: " + host + ":" + port +
+                    " | Time: " + durationMs + " ms");
             sendGatewayTimeout(clientOut);
             try {
                 serverSocket.close();
@@ -247,7 +220,10 @@ public class ClientHandler implements Runnable {
             }
             return;
         } catch (IOException e) {
+            long durationMs = (System.nanoTime() - tunnelStartTime) / 1_000_000;
             System.out.println("HTTPS tunnel failed for " + host + ":" + port + " - " + e.getMessage());
+            System.out.println("HTTPS Tunnel Failed: " + host + ":" + port +
+                    " | Time: " + durationMs + " ms");
             sendBadGateway(clientOut);
             try {
                 serverSocket.close();
@@ -258,6 +234,10 @@ public class ClientHandler implements Runnable {
 
         clientOut.write("HTTP/1.1 200 Connection Established\r\n\r\n".getBytes());
         clientOut.flush();
+
+    long establishedDurationMs = (System.nanoTime() - tunnelStartTime) / 1_000_000;
+    System.out.println("HTTPS Tunnel Established: " + host + ":" + port +
+        " | Time: " + establishedDurationMs + " ms");
 
         Thread t1 = new Thread(() -> pipe(clientSocket, serverSocket));
         Thread t2 = new Thread(() -> pipe(serverSocket, clientSocket));
@@ -278,9 +258,10 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private boolean checkBlockedList(String host, OutputStream clientOut) throws IOException {
-        if (BlockedListManager.isBlocked(host)) {
-            System.out.println("Blocked: " + host);
+    private boolean checkBlockedList(String host, String urlString, OutputStream clientOut) throws IOException {
+        String target = (urlString != null && !urlString.isBlank()) ? urlString : host;
+        if (BlockedListManager.isBlocked(target)) {
+            System.out.println("Blocked: " + target);
             sendForbidden(clientOut);
             return true;
         }
@@ -303,26 +284,54 @@ public class ClientHandler implements Runnable {
     }
 
     private void sendForbidden(OutputStream out) throws IOException {
-        String response = "HTTP/1.1 403 Forbidden\r\n\r\nBlocked by Proxy";
+        String body = "Blocked by Proxy";
+        byte[] bodyBytes = body.getBytes();
+        String response = "HTTP/1.1 403 Forbidden\r\n"
+                + "Content-Type: text/plain; charset=utf-8\r\n"
+                + "Content-Length: " + bodyBytes.length + "\r\n"
+                + "Connection: close\r\n"
+                + "\r\n";
         out.write(response.getBytes());
+        out.write(bodyBytes);
         out.flush();
     }
 
     private void sendBadRequest(OutputStream out) throws IOException {
-        String response = "HTTP/1.1 400 Bad Request\r\n\r\nInvalid proxy request";
+        String body = "Invalid proxy request";
+        byte[] bodyBytes = body.getBytes();
+        String response = "HTTP/1.1 400 Bad Request\r\n"
+                + "Content-Type: text/plain; charset=utf-8\r\n"
+                + "Content-Length: " + bodyBytes.length + "\r\n"
+                + "Connection: close\r\n"
+                + "\r\n";
         out.write(response.getBytes());
+        out.write(bodyBytes);
         out.flush();
     }
 
     private void sendGatewayTimeout(OutputStream out) throws IOException {
-        String response = "HTTP/1.1 504 Gateway Timeout\r\n\r\nUpstream connection timed out";
+        String body = "Upstream connection timed out";
+        byte[] bodyBytes = body.getBytes();
+        String response = "HTTP/1.1 504 Gateway Timeout\r\n"
+                + "Content-Type: text/plain; charset=utf-8\r\n"
+                + "Content-Length: " + bodyBytes.length + "\r\n"
+                + "Connection: close\r\n"
+                + "\r\n";
         out.write(response.getBytes());
+        out.write(bodyBytes);
         out.flush();
     }
 
     private void sendBadGateway(OutputStream out) throws IOException {
-        String response = "HTTP/1.1 502 Bad Gateway\r\n\r\nUpstream connection failed";
+        String body = "Upstream connection failed";
+        byte[] bodyBytes = body.getBytes();
+        String response = "HTTP/1.1 502 Bad Gateway\r\n"
+                + "Content-Type: text/plain; charset=utf-8\r\n"
+                + "Content-Length: " + bodyBytes.length + "\r\n"
+                + "Connection: close\r\n"
+                + "\r\n";
         out.write(response.getBytes());
+        out.write(bodyBytes);
         out.flush();
     }
 }
