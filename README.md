@@ -12,8 +12,14 @@ on a specified port (default 8080) and forwards client requests to origin server
 - **Management Console**: Provides an interactive CLI for monitoring and controlling the proxy
 
 ## Instructions
-- **Build**: `mvn clean package`
-- **Run**: `java -cp target/web-proxy-server-1.0-SNAPSHOT.jar com.proxy.ProxyServer`
+- **Build**: Use Maven to compile and package the application in root folder
+    ```bash
+    mvn clean package
+    ```
+- **Run**: Execute the JAR file to start the proxy server
+    ```bash
+    run.bat
+    ```
 - **Default Port**: 8080
 - **Browser Config**: Set HTTP proxy to 127.0.0.1:8080
 - **Management Console**: Type commands in the server console (e.g., `block example.com`)
