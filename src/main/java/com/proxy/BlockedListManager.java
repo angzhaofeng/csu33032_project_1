@@ -31,43 +31,43 @@ public class BlockedListManager {
         return false;
     }
 
-    public static boolean isUrlBlocked(String url) {
-        return isBlocked(url);
-    }
+    // public static boolean isUrlBlocked(String url) {
+    //     return isBlocked(url);
+    // }
 
-    public static boolean blockHost(String host) {
+    public static boolean block(String host) {
         String normalized = normalizeHost(host);
         return normalized != null && blockedHosts.add(normalized);
     }
 
-    public static boolean unblockHost(String host) {
+    public static boolean unblock(String host) {
         String normalized = normalizeHost(host);
         return normalized != null && blockedHosts.remove(normalized);
     }
 
-    public static boolean blockUrl(String url) {
-        return blockHost(url);
-    }
+    // public static boolean blockUrl(String url) {
+    //     return blockHost(url);
+    // }
 
-    public static boolean unblockUrl(String url) {
-        return unblockHost(url);
-    }
+    // public static boolean unblockUrl(String url) {
+    //     return unblockHost(url);
+    // }
 
-    public static boolean block(String target) {
-        return blockHost(target);
-    }
+    // public static boolean block(String target) {
+    //     return blockHost(target);
+    // }
 
-    public static boolean unblock(String target) {
-        return unblockHost(target);
-    }
+    // public static boolean unblock(String target) {
+    //     return unblockHost(target);
+    // }
 
     public static Set<String> getBlockedHosts() {
         return Collections.unmodifiableSet(new TreeSet<>(blockedHosts));
     }
 
-    public static Set<String> getBlockedUrls() {
-        return getBlockedHosts();
-    }
+    // public static Set<String> getBlockedUrls() {
+    //     return getBlockedHosts();
+    // }
 
     private static String normalizeHost(String host) {
         if (host == null) {

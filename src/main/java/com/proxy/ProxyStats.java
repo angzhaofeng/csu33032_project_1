@@ -10,8 +10,8 @@ public class ProxyStats {
     private static final AtomicLong totalCacheHitTimeMs = new AtomicLong();
     private static final AtomicLong totalNetworkFetchTimeMs = new AtomicLong();
 
-    private ProxyStats() {
-    }
+    // private ProxyStats() {
+    // }
 
     public static void recordCacheHit(long durationMs) {
         cacheHits.incrementAndGet();
