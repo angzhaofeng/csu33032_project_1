@@ -20,6 +20,8 @@ public class ClientHandler implements Runnable {
 
     @Override
     public void run() {
+        System.out.println("Handling request on thread: " 
+        + Thread.currentThread().getName());
         try (
                 BufferedReader reader = new BufferedReader(
                         new InputStreamReader(clientSocket.getInputStream()));
