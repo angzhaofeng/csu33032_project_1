@@ -199,12 +199,6 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        // if (BlockedListManager.isBlocked(host)) {
-        //     System.out.println("Blocked: " + host);
-        //     sendForbidden(clientOut);
-        //     return;
-        // }
-
         Socket serverSocket = new Socket();
         try {
             serverSocket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
