@@ -61,21 +61,5 @@ ProxyServer (Main)
 ### ✅ URL Blocking
 - Allows blocking of specific domains via CLI commands
 - Supports wildcard patterns for blocking (e.g., `*.ads.com`)
-### ✅ Management Console (To Be Implemented)
+### ✅ Management Console
 - Provides commands for blocking/unblocking domains, viewing cache stats, and monitoring requests
-
-## Testing
-### Unit Testing ✅
-- Used JUnit for testing CacheManager and BlockListManager
-- CacheManager tests: cache insertion, eviction, hit/miss tracking
-- BlockListManager tests: blocking/unblocking domains, wildcard matching
-### Integration Testing ✅
-- Simulated client requests using Java sockets
-- Verified correct request forwarding, response relaying, caching behavior, and blocking functionality
-### Browser Testing ✅
-- Configured Firefox to use the proxy at 127.0.0.1:8080
-- Tested loading of HTTP and HTTPS sites, confirming proper caching and blocking behavior
-## Performance
-- HTTP requests are served at full speed when cached
-- HTTPS requests are relayed with minimal overhead due to tunneling
-- Memory usage is optimized with LRU cache eviction
