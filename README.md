@@ -45,7 +45,7 @@ ProxyServer (Main)
 ├── ClientHandler - Handles individual client requests
 ├── CacheManager - Manages the LRU cache for HTTP responses
 ├── BlockListManager - Manages the list of blocked domains
-└── ManagementConsole - Provides an interactive command-line interface (To Be Implemented)
+└── ProxyStats - Collects and tracks metrics
 ``` 
 
 ## Features Implemented
